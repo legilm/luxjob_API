@@ -2,6 +2,7 @@ library(plumber)
 library(htmlwidgets)
 library(plotly)
 
+
 auth_helper <- function(res, req, FUN, ..., render_as_widget = FALSE) {
   # Get token from header: "Authorizat
   # ion: Bearer mytoken123"
@@ -9,7 +10,11 @@ auth_helper <- function(res, req, FUN, ..., render_as_widget = FALSE) {
   token <- sub("^Bearer ", "", auth_header)
   valid_token <- verify_token(token = token)
 
-  if ((valid_token) != TRUE) {
+  if (valid_token){
+    reduce_quota(token = token)
+  }
+
+  if (!valid_token) {
     res$status <- 401
     
     if (render_as_widget) {
@@ -32,7 +37,7 @@ auth_helper <- function(res, req, FUN, ..., render_as_widget = FALSE) {
 #* @apiTitle Basic Plumber API
 #* @apiDescription This is a simple API to demonstrate the use of plumber.
 #* @apiVersion 1.0.0
-#* @apiContact pierrick.kinif@datagrowth.io
+#* @apiContact g.steil@outlook.com
 #* @apiLicense MIT
 
 #* Echo the parameter that was sent in

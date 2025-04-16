@@ -11,6 +11,12 @@
 #' NOTE: Actual token enforcement is done done in the endpoint logic (e.g. with
 #' a helper like `auth_helper()`).
 # ------------------------------------------------------------------------------
+
+
+source("verify_token.R")
+source("reduce_quota.R")
+
+
 add_bearer_auth <- function(api, paths = NULL) {
   
   # Define the Bearer token security scheme to show in Swagger UI

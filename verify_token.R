@@ -27,7 +27,3 @@ verify_token <- function(token, schema = 'student_gilmar') {
            !is.null(res$token) && 
            res$token == token)
 }
-
-result <- verify_token(token = 'TokenExample1234567890')
-print(result)
-class(result)

@@ -12,6 +12,7 @@ auth_helper <- function(
   req_has_key <- "HTTP_API_KEY" %in% names(req)
   check_token_validity <- verify_token(token = req$HTTP_API_KEY)
   
+  
   if (!req_has_key || (check_token_validity) != TRUE) {
     res$status <- 401
     if (render_as_widget) {
@@ -34,7 +35,7 @@ auth_helper <- function(
 #* @apiTitle Basic Plumber API
 #* @apiDescription This is a simple API to demonstrate the use of plumber.
 #* @apiVersion 1.0.0
-#* @apiContact pierrick.kinif@datagrowth.io
+#* @apiContact g.steil@outlook.com
 #* @apiLicense MIT
 
 #* Echo the parameter that was sent in
