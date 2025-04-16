@@ -1,34 +1,91 @@
-library(plumber)
 # plumber.R
+library(plumber)
 
-
-#* @apiTitle Basic Plumber API
-#* @apiDescription This is a simple API to demonstrate the use of plumber.
-#* @apiVersion 1.0.0
-#* @apiContact pierrick.kinif@datagrowth.io
-#* @apiLicense MIT
-
-#* Echo the parameter that was sent in
-#* @param msg:string  The message to echo back.
-#* @get /echo
-function(msg=""){
-  list(msg = paste0("The message is: '", msg, "'"))
+#---------------------------
+# AUTHENTICATION FUNCTION
+#---------------------------
+auth_helper <- function(res, req, FUN, ...) {
+  req_has_key <- "HTTP_X_API_KEY" %in% names(req)
+  key_is_valid <- req$HTTP_X_API_KEY == Sys.getenv("API_KEY")
+  env_not_set <- nchar(Sys.getenv("API_KEY")) <= 1
+  
+  if (!req_has_key || !key_is_valid || env_not_set) {
+    res$body <- "Unauthorized"
+    res$status <- 401
+    return("Missing or invalid API key, or environment not set.")
+  } else {
+    FUN(...)
+  }
 }
 
-#* Plot out data from the iris dataset - without error handling
-#* @param spec:string If provided, filter the data to only this species (e.g. 'setosa')
-#* @get /plot
-#* @serializer png
-function(spec){
-  myData <- iris
-  title <- "All Species"
+#---------------------------
+# ADD AUTH TO OPENAPI DOC
+#---------------------------
+add_auth <- function(api, paths = NULL) {
+  api[["components"]] <- list(
+    securitySchemes = list(
+      ApiKeyAuth = list(
+        type = "apiKey",
+        `in` = "header",
+        name = "X-API-KEY",
+        description = "Enter your API key here"
+      )
+    )
+  )
   
-  # Filter if the species was specified
-  if (!missing(spec)) {
-    title <- paste0("Only the '", spec, "' Species")
-    myData <- subset(iris, Species == spec)
+  if (is.null(paths)) paths <- names(api$paths)
+  for (path in paths) {
+    methods <- names(api$paths[[path]])
+    for (method in intersect(methods, c("get", "post", "put", "delete", "head"))) {
+      api$paths[[path]][[method]] <- c(
+        api$paths[[path]][[method]],
+        list(security = list(list(ApiKeyAuth = vector())))
+      )
+    }
   }
   
-  plot(myData$Sepal.Length, myData$Petal.Length,
-       main = title, xlab = "Sepal Length", yla = "Petal Length")
+  api
 }
+
+#---------------------------
+# PLUMBER ROUTER WITH ENDPOINTS
+#---------------------------
+pr() |>
+  pr_set_api_spec(function(api) add_auth(api)) |>
+  
+  # CORS HEADERS + OPTIONS SUPPORT
+  pr_hook("preroute", function(req, res) {
+    res$setHeader("Access-Control-Allow-Origin", "*")
+    res$setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    res$setHeader("Access-Control-Allow-Headers", "X-API-KEY, Accept")
+    res$setHeader("Access-Control-Allow-Credentials", "true")
+    
+    if (req$REQUEST_METHOD == "OPTIONS") {
+      res$status <- 200
+      return(list())
+    }
+    
+    plumber::forward()
+  }) |>
+  
+  # Public endpoint (no auth)
+  pr_get("/ping", function() {
+    list(status = "ok")
+  }) |>
+  
+  # Protected endpoint (requires API key)
+  pr_get("/secret", function(req, res) {
+    auth_helper(res, req, function() {
+      list(message = "You accessed a protected endpoint successfully!")
+    })
+  }) |>
+  
+  # Protected echo endpoint
+  pr_get("/echo", function(req, res, msg = "") {
+    auth_helper(res, req, function() {
+      list(message = paste0("You said: '", msg, "'"))
+    })
+  }) |>
+  
+  # Run the API
+  pr_run(port = 8008, host = "0.0.0.0")
